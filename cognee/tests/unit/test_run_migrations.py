@@ -79,6 +79,30 @@ class TestRunRelationalMigrations(unittest.TestCase):
         # disable the host process's loggers.
         self.assertFalse(alembic_config.attributes.get("configure_logger", True))
 
+    def test_alembic_config_escapes_percent_encoded_database_uri(self):
+        """Database URLs containing percent-encoded characters (e.g. user%40example.com
+        or passwords with URL-reserved chars) must be escaped as '%%' when set in
+        Alembic's config section, so ConfigParser interpolation reproduces the exact URL."""
+        import pathlib
+
+        from alembic.config import Config
+
+        alembic_ini_path = pathlib.Path(__file__).parents[2] / "alembic.ini"
+        cfg = Config(str(alembic_ini_path))
+        raw_url = "postgresql+asyncpg://user%40example.com:p%25ss%3Aword@localhost:5432/testdb"
+
+        # Escaped with %% matching env.py:
+        cfg.set_section_option(
+            cfg.config_ini_section,
+            "SQLALCHEMY_DATABASE_URI",
+            raw_url.replace("%", "%%"),
+        )
+        resolved_url = cfg.get_section_option(cfg.config_ini_section, "sqlalchemy.url")
+        self.assertEqual(resolved_url, raw_url)
+
+        section_dict = cfg.get_section(cfg.config_ini_section, {})
+        self.assertEqual(section_dict["sqlalchemy.url"], raw_url)
+
 
 class TestMissingBookkeepingTables(unittest.TestCase):
     """run_database_migrations must skip gracefully when the bookkeeping tables

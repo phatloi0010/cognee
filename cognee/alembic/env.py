@@ -106,10 +106,13 @@ logging.getLogger("alembic.env").info(
     "Using database: %s", db_engine.engine.url.render_as_string(hide_password=True)
 )
 
+# Alembic's Config.set_section_option passes values to ConfigParser interpolation.
+# Any percent-encoded characters in username or password (e.g. %40 for @) must be
+# escaped as '%%' so interpolation does not raise ValueError and preserves the raw URL.
 config.set_section_option(
     config.config_ini_section,
     "SQLALCHEMY_DATABASE_URI",
-    db_uri,
+    db_uri.replace("%", "%%"),
 )
 
 
